@@ -91,14 +91,14 @@ export default function LoginForm({ onSubmit, isLoading = false, error = "" }: L
         )}
       </Button>
 
-      <div className="grid grid-cols-2 gap-2">
+      {/* <div className="grid grid-cols-2 gap-2">
         <div className="text-center py-2 px-2 bg-background-secondary dark:bg-background-dark-secondary rounded text-xs text-foreground-muted dark:text-foreground-dark-muted">
           Demo: +254712345678
         </div>
         <div className="text-center py-2 px-2 bg-background-secondary dark:bg-background-dark-secondary rounded text-xs text-foreground-muted dark:text-foreground-dark-muted">
           Password: demo123
         </div>
-      </div>
+      </div> */}
     </form>
   )
 }
