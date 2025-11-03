@@ -4,6 +4,8 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import StatusUpdateModal from "./status-update-modal"
+import ReportDetailModal from "./report-detail-modal"
+import { Eye } from "lucide-react"
 
 interface Report {
   id: string
@@ -26,6 +28,8 @@ interface ReportsListProps {
 export default function ReportsList({ reports, isLoading, onRefresh }: ReportsListProps) {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedDetailReport, setSelectedDetailReport] = useState<Report | null>(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -120,7 +124,19 @@ export default function ReportsList({ reports, isLoading, onRefresh }: ReportsLi
                       <td className="py-3 px-4 text-foreground dark:text-foreground-dark max-w-xs truncate">
                         {report.description}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 flex items-center gap-2">
+                        <Button
+                          onClick={() => {
+                            setSelectedDetailReport(report)
+                            setIsDetailOpen(true)
+                          }}
+                          size="sm"
+                          variant="ghost"
+                          title="View details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+
                         <Button
                           onClick={() => {
                             setSelectedReport(report)
@@ -157,6 +173,16 @@ export default function ReportsList({ reports, isLoading, onRefresh }: ReportsLi
           }}
         />
       )}
+
+    {/* Report Detail Modal */}
+    <ReportDetailModal
+      isOpen={isDetailOpen}
+      report={selectedDetailReport}
+      onClose={() => {
+        setIsDetailOpen(false)
+        setSelectedDetailReport(null)
+      }}
+    />
     </>
   )
 }
