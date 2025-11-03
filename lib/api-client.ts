@@ -11,6 +11,9 @@ export interface ApiError {
 export class ApiClient {
   private accessToken: string | null = null
   private refreshToken: string | null = null
+  private refreshPromise: Promise<boolean> | null = null
+  // Change this if your backend exposes a different refresh endpoint
+  private REFRESH_ENDPOINT = "/token/refresh/"
 
   setTokens(access: string, refresh: string) {
     this.accessToken = access
@@ -59,6 +62,31 @@ export class ApiClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+
+        // If the access token is invalid/expired, attempt to refresh and retry once
+        if (response.status === 401 && errorData?.code === "token_not_valid") {
+          const refreshed = await this.attemptRefresh()
+          if (refreshed) {
+            // Retry original request once with the new token
+            const retryResp = await fetch(url, {
+              ...fetchOptions,
+              headers: this.getHeaders(undefined, Boolean(skipAuth)),
+              body: data ? JSON.stringify(data) : fetchOptions.body,
+            })
+
+            if (!retryResp.ok) {
+              const retryError = await retryResp.json().catch(() => ({}))
+              throw {
+                message: retryError.error || "API request failed",
+                status: retryResp.status,
+                data: retryError,
+              } as ApiError
+            }
+
+            return (await retryResp.json()) as T
+          }
+        }
+
         throw {
           message: errorData.error || "API request failed",
           status: response.status,
@@ -76,6 +104,48 @@ export class ApiClient {
       }
       throw error
     }
+  }
+
+  private async attemptRefresh(): Promise<boolean> {
+    // If a refresh is already in progress, wait for it
+    if (this.refreshPromise) return this.refreshPromise
+
+    this.refreshPromise = (async () => {
+      try {
+        if (!this.refreshToken) return false
+
+        const url = `${API_BASE_URL}${this.REFRESH_ENDPOINT}`
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: this.getHeaders("application/json", true),
+          body: JSON.stringify({ refresh: this.refreshToken }),
+        })
+
+        if (!resp.ok) {
+          // refresh failed, clear tokens
+          this.clearTokens()
+          return false
+        }
+
+        const body = await resp.json().catch(() => ({}))
+        if (body.access) {
+          // Some backends return a new refresh token, others don't
+          const newRefresh = body.refresh || this.refreshToken || ""
+          this.setTokens(body.access, newRefresh)
+          return true
+        }
+
+        this.clearTokens()
+        return false
+      } catch (err) {
+        this.clearTokens()
+        return false
+      } finally {
+        this.refreshPromise = null
+      }
+    })()
+
+    return this.refreshPromise
   }
 
   async get<T>(endpoint: string): Promise<T> {

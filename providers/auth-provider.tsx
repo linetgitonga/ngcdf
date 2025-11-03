@@ -1,83 +1,89 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useState } from "react"
+import type React from "react"
+import { createContext, useContext, useState, useEffect } from "react"
+import { apiClient } from "@/lib/api-client"
 
-type User = {
-  id?: string
-  first_name?: string
-  last_name?: string
-  role?: string
-  phone?: string
+export interface User {
+  id: string
+  phone_number: string
+  first_name: string
+  last_name: string
+  role: "admin" | "officer" | "leader"
+  ward: string
 }
 
-type AuthContextValue = {
+interface AuthContextType {
   user: User | null
-  isAuthenticated: boolean
   isLoading: boolean
   login: (phoneNumber: string, password: string) => Promise<void>
   logout: () => void
+  isAuthenticated: boolean
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("skika_user")
-      if (raw) setUser(JSON.parse(raw))
-    } catch (err) {
-      // ignore
-    } finally {
-      setIsLoading(false)
+    const initAuth = async () => {
+      apiClient.loadTokens()
+      // Use the public helper to check if an access token was loaded
+      if (apiClient.hasAccessToken()) {
+        // Token exists, user is authenticated
+        setIsLoading(false)
+      } else {
+        setIsLoading(false)
+      }
     }
+    initAuth()
   }, [])
 
   const login = async (phoneNumber: string, password: string) => {
-    // Minimal fake login for dev: replace with real API call
     setIsLoading(true)
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        if (!phoneNumber) return reject(new Error("Phone number required"))
-        const fakeUser: User = {
-          id: "1",
-          first_name: "Officer",
-          last_name: "User",
-          role: "officer",
-          phone: phoneNumber,
-        }
-        setUser(fakeUser)
-        try {
-          localStorage.setItem("skika_user", JSON.stringify(fakeUser))
-        } catch (_) {}
-        setIsLoading(false)
-        resolve()
-      }, 400)
-    })
+    try {
+      const response = await apiClient.post<{
+        access: string
+        refresh: string
+        user: User
+      }>("/dashboard-login/", {
+        phone_number: phoneNumber,
+        password,
+      })
+
+      apiClient.setTokens(response.access, response.refresh)
+      setUser(response.user)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const logout = () => {
+    apiClient.clearTokens()
     setUser(null)
-    try {
-      localStorage.removeItem("skika_user")
-    } catch (_) {}
   }
 
-  const value: AuthContextValue = {
-    user,
-    isAuthenticated: !!user,
-    isLoading,
-    login,
-    logout,
-  }
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        logout,
+        isAuthenticated: !!user,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error("useAuth must be used within an AuthProvider")
-  return ctx
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider")
+  }
+  return context
 }
