@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import Link from "next/link"
 
 interface LoginFormProps {
   onSubmit: (phoneNumber: string, password: string) => Promise<void>
@@ -90,6 +91,11 @@ export default function LoginForm({ onSubmit, isLoading = false, error = "" }: L
           "Sign In"
         )}
       </Button>
+
+      <div className="flex justify-between items-center mt-2">
+        <div />
+        <Link href="/forgot-password" className="text-sm text-primary hover:underline">Forgot password?</Link>
+      </div>
 
       {/* <div className="grid grid-cols-2 gap-2">
         <div className="text-center py-2 px-2 bg-background-secondary dark:bg-background-dark-secondary rounded text-xs text-foreground-muted dark:text-foreground-dark-muted">

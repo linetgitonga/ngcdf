@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import useSWR from "swr"
 import { apiClient } from "@/lib/api-client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,16 +26,23 @@ export default function ReportsPage() {
     status_en: "",
   })
 
-  const queryParams = new URLSearchParams()
-  if (filters.ward) queryParams.append("ward", filters.ward)
-  if (filters.category_en) queryParams.append("category_en", filters.category_en)
-  if (filters.status_en) queryParams.append("status_en", filters.status_en)
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams()
+    if (filters.ward) params.append("ward", filters.ward)
+    if (filters.category_en) params.append("category_en", filters.category_en)
+    if (filters.status_en) params.append("status_en", filters.status_en)
+    return params.toString()
+  }, [filters.ward, filters.category_en, filters.status_en])
+
+  const swrKey = useMemo(() => {
+    return queryString ? `/reports/?${queryString}` : `/reports/`
+  }, [queryString])
 
   const {
     data: reports,
     isLoading,
     mutate,
-  } = useSWR<any>(`/reports/?${queryParams.toString()}`, (endpoint: string) => apiClient.get(endpoint))
+  } = useSWR<any>(swrKey, (endpoint: string) => apiClient.get(endpoint))
 
   // Ensure we always pass an array to the list component. The API may return
   // an object shape like { results: [...] } or { data: [...] } or the array
@@ -100,13 +107,22 @@ export default function ReportsPage() {
             </div>
 
             <div className="flex items-end">
-              <Button
-                onClick={() => setFilters({ ward: "", category_en: "", status_en: "" })}
-                variant="outline"
-                className="w-full"
-              >
-                Reset Filters
-              </Button>
+              <div className="flex gap-2 w-full">
+                <Button
+                  onClick={() => mutate?.()}
+                  variant="default"
+                  className="flex-1"
+                >
+                  Apply Filters
+                </Button>
+                <Button
+                  onClick={() => setFilters({ ward: "", category_en: "", status_en: "" })}
+                  variant="outline"
+                  className="w-36"
+                >
+                  Reset
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
